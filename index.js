@@ -39,6 +39,28 @@ const result = await artifyCollection.find().toArray()
 })
 
 
+app.get("/homepage", async (req, res) => {
+  const featured = await artifyCollection
+    .find()
+    .sort({ _id: -1 }) 
+    .limit(6)
+    .toArray();
+
+  const topArtists = await artifyCollection
+    .find()
+    .sort({ likes: -1 }) 
+    .limit(6)
+    .toArray();
+
+  const result = await artifyCollection.find().sort({ _id: -1 }) .limit(6).toArray();
+
+  res.send({
+    featured,
+    topArtists,
+    result
+  });
+});
+
 
 
     await client.db("admin").command({ ping: 1 });
