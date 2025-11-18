@@ -117,13 +117,29 @@ app.get("/homepage", async (req, res) => {
     });
 
     // GET ALL FAVORITES OF USER
-    app.get("/favorites/:userId", async (req, res) => {
-      const favs = await favoritesCollection.find({ userId: req.params.userId }).toArray();
-      res.send(favs);
-    });
+ app.get("/favorites/user/:userId", async (req, res) => {
+  const userId = req.params.userId;
 
+  const userFavorites = await favoritesCollection
+    .find({ userId })
+    .toArray();
 
+  const artworkIds = userFavorites.map(f => new ObjectId(f.artworkId));
 
+  const artworks = await artifyCollection
+    .find({ _id: { $in: artworkIds } })
+    .toArray();
+
+  res.send(artworks);
+});
+
+app.delete("/favorites/:artworkId/:userId", async (req, res) => {
+  const { artworkId, userId } = req.params;
+
+  await favoritesCollection.deleteOne({ artworkId, userId });
+
+  res.send({ success: true });
+});
 
 
 
