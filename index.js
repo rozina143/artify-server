@@ -1,5 +1,5 @@
 const express = require('express');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express()
 const cors = require('cors')
 const port = 3000
@@ -28,7 +28,7 @@ async function run() {
     // Send a ping to confirm a successful connection
 const db = client.db('artify-db')
 const artifyCollection = db.collection('collection')
-
+const favoritesCollection = db.collection("favorites");
 
 
 app.get('/artify', async (req , res)=>{
@@ -60,6 +60,70 @@ app.get("/homepage", async (req, res) => {
     result
   });
 });
+
+
+
+  app.get("/artwork/:id", async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const artwork = await artifyCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!artwork) {
+          return res.status(404).send({ error: "Artwork not found" });
+        }
+
+        res.send(artwork);
+
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
+    });
+
+    // LIKE BUTTON
+    app.patch("/artwork/:id/like", async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        await artifyCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $inc: { likes: 1 } }
+        );
+        res.send({ success: true });
+
+      } catch (err) {
+        res.status(500).send({ error: err.message });
+      }
+    });
+
+    // ADD FAVORITE
+    app.post("/favorites", async (req, res) => {
+      const { artworkId, userId } = req.body;
+
+      if (!artworkId)
+        return res.status(400).send({ error: "artworkId missing" });
+
+      const exists = await favoritesCollection.findOne({ artworkId, userId });
+
+      if (exists) {
+        return res.send({ success: true, message: "Already in favorites" });
+      }
+
+      await favoritesCollection.insertOne({ artworkId, userId });
+
+      res.send({ success: true });
+    });
+
+    // GET ALL FAVORITES OF USER
+    app.get("/favorites/:userId", async (req, res) => {
+      const favs = await favoritesCollection.find({ userId: req.params.userId }).toArray();
+      res.send(favs);
+    });
+
+
+
 
 
 
