@@ -24,11 +24,12 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-
+await client.connect();
     // Send a ping to confirm a successful connection
 const db = client.db('artify-db')
 const artifyCollection = db.collection('collection')
 const favoritesCollection = db.collection("favorites");
+
 
 
 app.get('/artify', async (req , res)=>{
@@ -115,30 +116,84 @@ app.get("/homepage", async (req, res) => {
 
       res.send({ success: true });
     });
+// add artwork
+app.post("/artify", async (req, res) => {
+  const artwork = req.body;
 
-    // GET ALL FAVORITES OF USER
- app.get("/favorites/user/:userId", async (req, res) => {
-  const userId = req.params.userId;
+  // Optional: add a userId field
+  // artwork.userId = artwork.userEmail;
 
-  const userFavorites = await favoritesCollection
-    .find({ userId })
-    .toArray();
-
-  const artworkIds = userFavorites.map(f => new ObjectId(f.artworkId));
-
-  const artworks = await artifyCollection
-    .find({ _id: { $in: artworkIds } })
-    .toArray();
-
-  res.send(artworks);
+  try {
+    const result = await artifyCollection.insertOne(artwork);
+    res.send({ success: true, insertedId: result.insertedId });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
 });
 
-app.delete("/favorites/:artworkId/:userId", async (req, res) => {
-  const { artworkId, userId } = req.params;
+// favouritePage
+app.get("/favorites/:userId", async (req, res) => {
+  const { userId } = req.params;
 
-  await favoritesCollection.deleteOne({ artworkId, userId });
+  try {
+    // Find favorite entries for this user
+    const favoriteEntries = await favoritesCollection.find({ userId }).toArray();
 
-  res.send({ success: true });
+    // Map artworkId to actual artwork data
+    const favoriteArtworks = await Promise.all(
+      favoriteEntries.map(async (fav) => {
+        const artwork = await artifyCollection.findOne({ _id: new ObjectId(fav.artworkId) });
+        return artwork ? { ...artwork, artworkId: fav.artworkId } : null;
+      })
+    );
+
+    res.send(favoriteArtworks.filter(Boolean));
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+});
+
+app.delete("/favorites/:userId/:artworkId", async (req, res) => {
+  const { userId, artworkId } = req.params;
+  try {
+    await favoritesCollection.deleteOne({ userId, artworkId });
+    res.send({ success: true });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+});
+
+// my gallery
+app.get("/my-artworks/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const artworks = await artifyCollection.find({ userId }).toArray();
+    res.send(artworks);
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+});
+app.delete("/my-artworks/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await artifyCollection.deleteOne({ _id: new ObjectId(id) });
+    res.send({ success: true });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
+});
+  app.put("/my-artworks/:id", async (req, res) => {
+  const { id } = req.params;
+  const updateData = req.body; // { title, category, medium, image, etc. }
+  try {
+    await artifyCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
+    res.send({ success: true });
+  } catch (err) {
+    res.status(500).send({ error: err.message });
+  }
 });
 
 
